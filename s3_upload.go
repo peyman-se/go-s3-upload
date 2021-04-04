@@ -3,6 +3,7 @@ package s3_upload
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 
@@ -75,35 +76,38 @@ func (s *S3Upload) SaveTo(destination string) (string, error) {
 
 	uploader := s3manager.NewUploader(sess)
 	bucketName := (map[bool]string{true: GetEnvWithKey("BUCKET_NAME"), false: s.BucketName})[s.BucketName == ""]
-	visibility := (map[bool]string{true: "public-read", false: "private-read"})[s.IsPublic]
 
 	file, err := os.Open(s.LocalFilePath)
     if err != nil {
         return "", err
     }
-
     defer file.Close()
     
     fileInfo, _ := file.Stat()
     var fileSize int64 = fileInfo.Size()
     fileBuffer := make([]byte, fileSize)
+
     file.Read(fileBuffer)
 
-	//upload to the s3 bucket
-	_, e := uploader.Upload(&s3manager.UploadInput{
+	uploadInput := s3manager.UploadInput{
 		Bucket: aws.String(bucketName),
-		ACL:    aws.String(visibility),
 		Key:    aws.String(s.Destination),
 		Body:   bytes.NewReader(fileBuffer),
-	})
+	}
+
+	if s.IsPublic {
+		uploadInput.ACL = aws.String("public-read")
+	}
+
+	//upload to the s3 bucket
+	_, e := uploader.Upload(&uploadInput)
 
 	if e != nil {
-		log.Panic("error uploading to s3")
+		log.Panic(e)
 		return "", errors.New("error uploading to s3")
 	}
 
 	filePath := "https://" + bucketName + "." + "s3-" + region + ".amazonaws.com/" + s.Destination
 
 	return filePath, nil
-
 }
