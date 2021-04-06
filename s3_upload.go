@@ -3,7 +3,6 @@ package s3_upload
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"log"
 	"os"
 
